@@ -1,62 +1,43 @@
 #!/bin/bash
 
-# Verificar si es root
+# Requiere privilegios de sudo
 if [[ $EUID -ne 0 ]]; then
-    echo "Este script debe ejecutarse como root. Usa: sudo ./custom.sh"
-    exit 1
+   echo "Por favor, ejecuta como root: sudo $0"
+   exit 1
 fi
 
-# Obtener el usuario real si se ejecuta con sudo
-REAL_USER="${SUDO_USER:-$(logname)}"
-USER_HOME=$(eval echo "~$REAL_USER")
-ZSH_CUSTOM="$USER_HOME/.oh-my-zsh/custom"
+# Variables
+USER_HOME="/home/$SUDO_USER"
+FISH_CONFIG_DIR="$USER_HOME/.config/fish"
 FASTFETCH_CONFIG_DIR="$USER_HOME/.config/fastfetch"
-FASTFETCH_LOGO_PATH="$USER_HOME/Custom/one_piece_logo.png"
-ZSHRC="$USER_HOME/.zshrc"
+LOGO_PATH="$USER_HOME/Custom/one_piece_logo.png"
 
-echo "🔄 Actualizando sistema..."
-apt update && apt upgrade -y
+# 1. Instalar Fish Shell
+echo "[+] Instalando Fish..."
+apt update && apt install -y fish curl git
 
-echo "📦 Instalando zsh, fish, fastfetch, git, curl y dconf-cli..."
-apt install -y zsh fish fastfetch git curl dconf-cli
+# 2. Instalar Fisher (gestor de plugins para Fish)
+echo "[+] Instalando Fisher..."
+sudo -u $SUDO_USER fish -c "curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher"
 
-echo "💡 Instalando Oh My Zsh si no existe..."
-if [ ! -d "$USER_HOME/.oh-my-zsh" ]; then
-    sudo -u "$REAL_USER" sh -c \
-    'RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
-fi
+# 3. Instalar plugins recomendados
+echo "[+] Instalando plugins para Fish..."
+sudo -u $SUDO_USER fish -c "fisher install IlanCosman/tide"
+sudo -u $SUDO_USER fish -c "fisher install PatrickF1/fish-syntax-highlighting"
+sudo -u $SUDO_USER fish -c "fisher install PatrickF1/fzf.fish"
 
-echo "🔌 Instalando plugins para zsh..."
-[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
-    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
-    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-[ -d "$ZSH_CUSTOM/themes/powerlevel10k" ] || \
-    sudo -u "$REAL_USER" git clone https://github.com/romkatv/powerlevel10k.git "$ZSH_CUSTOM/themes/powerlevel10k"
+# 4. Instalar Fastfetch
+echo "[+] Instalando Fastfetch..."
+apt install -y fastfetch
 
-echo "🛠️ Configurando .zshrc..."
-# Cambiar tema y plugins
-sudo -u "$REAL_USER" sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$ZSHRC"
-sudo -u "$REAL_USER" sed -i 's/^plugins=(.*)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$ZSHRC"
-
-# Agregar fastfetch sin conflicto con p10k
-if ! grep -q "FASTFETCH_SESSION_SHOWN" "$ZSHRC"; then
-    echo -e "\n# Mostrar fastfetch con config personalizada una vez por sesión" | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo 'if [[ $- == *i* ]]; then' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo '  if [[ -z "$FASTFETCH_SESSION_SHOWN" ]]; then' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo '    command fastfetch --load-config ~/.config/fastfetch/config.jsonc' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo '    export FASTFETCH_SESSION_SHOWN=1' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo '  fi' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-    echo 'fi' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
-fi
-
-echo "📂 Creando configuración personalizada de Fastfetch..."
-sudo -u "$REAL_USER" mkdir -p "$FASTFETCH_CONFIG_DIR"
-sudo -u "$REAL_USER" tee "$FASTFETCH_CONFIG_DIR/config.jsonc" > /dev/null <<EOF
+# 5. Crear carpeta de configuración para Fastfetch
+echo "[+] Configurando Fastfetch..."
+mkdir -p "$FASTFETCH_CONFIG_DIR"
+cat <<EOF > "$FASTFETCH_CONFIG_DIR/config.jsonc"
 {
   "logo": {
     "type": "kitty",
-    "source": "$FASTFETCH_LOGO_PATH",
+    "source": "$LOGO_PATH",
     "width": 23,
     "height": 19
   },
@@ -152,7 +133,13 @@ sudo -u "$REAL_USER" tee "$FASTFETCH_CONFIG_DIR/config.jsonc" > /dev/null <<EOF
 }
 EOF
 
-echo "🐚 Estableciendo zsh como shell predeterminado..."
-chsh -s "$(which zsh)" "$REAL_USER"
+# 6. Mostrar Fastfetch automáticamente en Fish
+echo "[+] Configurando fish para mostrar fastfetch..."
+mkdir -p "$FISH_CONFIG_DIR"
+echo "fastfetch" >> "$FISH_CONFIG_DIR/config.fish"
 
-echo -e "\n✅ ¡Listo! Reinicia tu terminal o ejecuta 'zsh' para ver Fastfetch con tu configuración personalizada."
+# 7. Dar propiedad de los archivos al usuario real
+chown -R $SUDO_USER:$SUDO_USER "$FISH_CONFIG_DIR"
+chown -R $SUDO_USER:$SUDO_USER "$FASTFETCH_CONFIG_DIR"
+
+echo "[✔] Todo listo. Abre una nueva terminal Fish para ver Fastfetch con el logo de One Piece."
