@@ -6,8 +6,9 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# Variables
-USER_HOME="/home/$SUDO_USER"
+# Obtener el usuario real si se ejecuta con sudo
+REAL_USER="${SUDO_USER:-$(logname)}"
+USER_HOME=$(eval echo "~$REAL_USER")
 ZSH_CUSTOM="$USER_HOME/.oh-my-zsh/custom"
 FASTFETCH_CONFIG_DIR="$USER_HOME/.config/fastfetch"
 FASTFETCH_LOGO_PATH="$USER_HOME/Custom/one_piece_logo.png"
@@ -21,37 +22,37 @@ apt install -y zsh fish fastfetch git curl dconf-cli
 
 echo "💡 Instalando Oh My Zsh si no existe..."
 if [ ! -d "$USER_HOME/.oh-my-zsh" ]; then
-    sudo -u "$SUDO_USER" sh -c \
+    sudo -u "$REAL_USER" sh -c \
     'RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
 fi
 
 echo "🔌 Instalando plugins para zsh..."
 [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
-    sudo -u "$SUDO_USER" git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
 [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
-    sudo -u "$SUDO_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 [ -d "$ZSH_CUSTOM/themes/powerlevel10k" ] || \
-    sudo -u "$SUDO_USER" git clone https://github.com/romkatv/powerlevel10k.git "$ZSH_CUSTOM/themes/powerlevel10k"
+    sudo -u "$REAL_USER" git clone https://github.com/romkatv/powerlevel10k.git "$ZSH_CUSTOM/themes/powerlevel10k"
 
 echo "🛠️ Configurando .zshrc..."
 # Cambiar tema y plugins
-sudo -u "$SUDO_USER" sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$ZSHRC"
-sudo -u "$SUDO_USER" sed -i 's/^plugins=(.*)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$ZSHRC"
+sudo -u "$REAL_USER" sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$ZSHRC"
+sudo -u "$REAL_USER" sed -i 's/^plugins=(.*)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$ZSHRC"
 
 # Agregar fastfetch sin conflicto con p10k
 if ! grep -q "FASTFETCH_SESSION_SHOWN" "$ZSHRC"; then
-    echo -e "\n# Mostrar fastfetch con config personalizada una vez por sesión" | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo 'if [[ $- == *i* ]]; then' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo '  if [[ -z "$FASTFETCH_SESSION_SHOWN" ]]; then' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo '    command fastfetch --load-config ~/.config/fastfetch/config.jsonc' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo '    export FASTFETCH_SESSION_SHOWN=1' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo '  fi' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
-    echo 'fi' | sudo -u "$SUDO_USER" tee -a "$ZSHRC"
+    echo -e "\n# Mostrar fastfetch con config personalizada una vez por sesión" | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo 'if [[ $- == *i* ]]; then' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo '  if [[ -z "$FASTFETCH_SESSION_SHOWN" ]]; then' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo '    command fastfetch --load-config ~/.config/fastfetch/config.jsonc' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo '    export FASTFETCH_SESSION_SHOWN=1' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo '  fi' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
+    echo 'fi' | sudo -u "$REAL_USER" tee -a "$ZSHRC"
 fi
 
 echo "📂 Creando configuración personalizada de Fastfetch..."
-sudo -u "$SUDO_USER" mkdir -p "$FASTFETCH_CONFIG_DIR"
-sudo -u "$SUDO_USER" tee "$FASTFETCH_CONFIG_DIR/config.jsonc" > /dev/null <<EOF
+sudo -u "$REAL_USER" mkdir -p "$FASTFETCH_CONFIG_DIR"
+sudo -u "$REAL_USER" tee "$FASTFETCH_CONFIG_DIR/config.jsonc" > /dev/null <<EOF
 {
   "logo": {
     "type": "kitty",
@@ -152,6 +153,6 @@ sudo -u "$SUDO_USER" tee "$FASTFETCH_CONFIG_DIR/config.jsonc" > /dev/null <<EOF
 EOF
 
 echo "🐚 Estableciendo zsh como shell predeterminado..."
-chsh -s "$(which zsh)" "$SUDO_USER"
+chsh -s "$(which zsh)" "$REAL_USER"
 
 echo -e "\n✅ ¡Listo! Reinicia tu terminal o ejecuta 'zsh' para ver Fastfetch con tu configuración personalizada."
